@@ -15,6 +15,8 @@ import stringzilla as sz
 from usearch_molecules.to_fingerprint import (
     smiles_to_maccs_ecfp4_fcfp4,
     FingerprintShape,
+    shape_ecfp4,
+    shape_fcfp4,
     shape_maccs,
     shape_mixed,
 )
@@ -126,7 +128,7 @@ class FingerprintedShard:
 
     def load_smiles(self) -> sz.Strs:
         if not self.smiles_caches:
-            self.smiles_caches = sz.Str(sz.File(self.smiles_path)).splitlines()
+            self.smiles_caches = sz.File(self.smiles_path).splitlines()
         return self.smiles_caches
 
 

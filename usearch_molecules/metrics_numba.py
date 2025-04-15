@@ -45,6 +45,16 @@ def tanimoto_ecfp4(a, b):
         ors += word_popcount(a_array[i] | b_array[i])
     return 1 - types.float32(ands) / ors
 
+@cfunc(numba_signature)
+def tanimoto_fcfp4(a, b):
+    a_array = carray(a, 64)
+    b_array = carray(b, 64)
+    ands = 0
+    ors = 0
+    for i in range(64):
+        ands += word_popcount(a_array[i] & b_array[i])
+        ors += word_popcount(a_array[i] | b_array[i])
+    return 1 - types.float32(ands) / ors
 
 @cfunc(numba_signature)
 def tanimoto_mixed(a, b):

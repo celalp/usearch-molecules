@@ -1,3 +1,10 @@
+# This codebase is modifed from its original in the following ways
+
+1. removed streamlit app and all jupyter notebooks
+2. added single index methods for fcfp4 fingerprings
+3. added a simple script to create all the indexes for a given parquent file
+
+
 #  USearch Molecules
 
 ![USearch Molecules 7B datataset thumbnail](/assets/USearchMolecules.jpg)
