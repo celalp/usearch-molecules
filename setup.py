@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="usearch-molecules",
+    name="usearch_molecules",
     version="1.0.0",
-    description="Library for molecule exploration using Unum's USearch.",
+    description="Modified from Library for molecule exploration using Unum's USearch.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="Ash Vardanian",
@@ -20,3 +20,4 @@ setup(
     ],
     python_requires=">=3.9",
 )
+

@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 import os
 from dataclasses import dataclass
-from typing import Tuple, List
+from typing import Tuple, List, Optional
+import random
+
 
 import numpy as np
 
@@ -12,11 +15,7 @@ try:
     from jpype import isJVMStarted, startJVM, getDefaultJVMPath, JPackage
 except ImportError:
     print("Can't fingerprint molecules without RDKit and JPype")
-from __future__ import annotations
-import os
-import random
-from dataclasses import dataclass
-from typing import Tuple, List, Optional
+
 
 from tqdm import tqdm
 import numpy as np
