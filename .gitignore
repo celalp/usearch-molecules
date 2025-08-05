@@ -5,7 +5,7 @@
 *.tar
 *.gz
 *.egg-info
-
+.idea
 data
 build
 build_debug
