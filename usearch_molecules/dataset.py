@@ -13,18 +13,71 @@ import pyarrow.parquet as pq
 from usearch.index import Index, Matches, Key
 import stringzilla as sz
 
-from usearch_molecules.to_fingerprint import (
-    smiles_to_maccs_ecfp4_fcfp4,
-    FingerprintShape,
-    shape_ecfp4,
-    shape_fcfp4,
-    shape_maccs,
-    shape_mixed,
-)
+from rdkit import Chem
+from rdkit.Chem import AllChem, MACCSkeys
+
+_cdk = None
+_cdk_smiles_parser = None
+_cdk_fingerprinter = None
+
+def molecule_to_maccs(x):
+    return MACCSkeys.GenMACCSKeys(x)
+
+def molecule_to_ecfp4(x):
+    return AllChem.GetMorganFingerprintAsBitVect(x, 2, nBits=2048)
+
+def molecule_to_fcfp4(x):
+    return AllChem.GetMorganFingerprintAsBitVect(x, 2, nBits=2048, useFeatures=True)
+
+def smiles_to_maccs_ecfp4_fcfp4(
+    smiles: str,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Uses RDKit to simultaneously compute MACCS, ECFP4, and FCFP4 representations."""
+
+    molecule = Chem.MolFromSmiles(smiles)
+    return (
+        np.packbits(molecule_to_maccs(molecule)),
+        np.packbits(molecule_to_ecfp4(molecule)),
+        np.packbits(molecule_to_fcfp4(molecule)),
+    )
 
 SEED = 42  # For reproducibility
 SHARD_SIZE = 1_000_000  # This would result in files between 150 and 300 MB
 BATCH_SIZE = 100_000  # A good threshold to split insertions
+
+@dataclass
+class FingerprintShape:
+    """Represents the shape of a hybrid fingerprint, potentially containing multiple concatenated bit-vectors."""
+
+    include_maccs: bool = False
+    include_ecfp4: bool = False
+    include_fcfp4: bool = False
+    nbytes_padding: int = 0
+
+    @property
+    def nbytes(self) -> int:
+        return (
+            self.include_maccs * 21
+            + self.nbytes_padding
+            + self.include_ecfp4 * 256
+            + self.include_fcfp4 * 256
+        )
+
+    @property
+    def nbits(self) -> int:
+        return self.nbytes * 8
+
+    @property
+    def index_name(self) -> str:
+        parts = ["index"]
+        if self.include_maccs:
+            parts.append("maccs")
+        if self.include_ecfp4:
+            parts.append("ecfp4")
+        if self.include_fcfp4:
+            parts.append("fcfp4")
+        return "-".join(parts) + ".usearch"
+
 
 
 @dataclass
@@ -268,7 +321,23 @@ class FingerprintedDataset:
         row = random.randint(0, len(shard.smiles) - 1)
         return str(shard.smiles[row])
 
+shape_maccs = FingerprintShape(
+    include_maccs=True,
+    nbytes_padding=3,
+)
 
-if __name__ == "__main__":
-    dataset = FingerprintedDataset.open("data/pubchem", shape=shape_maccs)
-    dataset.search("C")
+shape_mixed = FingerprintShape(
+    include_maccs=True,
+    include_ecfp4=True,
+    nbytes_padding=3,
+)
+
+shape_ecfp4 = FingerprintShape(
+    include_ecfp4=True,
+    nbytes_padding=3,
+)
+
+shape_fcfp4 = FingerprintShape(
+    include_fcfp4=True,
+    nbytes_padding=3,
+)

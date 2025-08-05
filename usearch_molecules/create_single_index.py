@@ -1,27 +1,21 @@
 import os
 import argparse
-from typing import List, Callable
-from multiprocessing import Process, cpu_count
 
 import numpy as np
 import pyarrow as pa
-import pyarrow.parquet as pq
-
 
 from usearch.index import Index, CompiledMetric, MetricKind, MetricSignature, ScalarKind
 
 from usearch_molecules.metrics_numba import (
-    tanimoto_conditional,
     tanimoto_maccs,
     tanimoto_ecfp4,
     tanimoto_fcfp4
 )
 from usearch_molecules.dataset import (
-    write_table,
     FingerprintedDataset,
     FingerprintedEntry,
 )
-from usearch_molecules.to_fingerprint import (
+from dataset import (
     shape_maccs,
     shape_ecfp4,
     shape_fcfp4

@@ -13,7 +13,6 @@ from usearch.index import Index, CompiledMetric, MetricKind, MetricSignature, Sc
 from usearch.eval import self_recall, SearchStats
 
 from usearch_molecules.metrics_numba import (
-    tanimoto_conditional,
     tanimoto_mixed,
     tanimoto_maccs,
 )
@@ -22,9 +21,8 @@ from usearch_molecules.dataset import (
     FingerprintedDataset,
     FingerprintedEntry,
 )
-from usearch_molecules.to_fingerprint import (
+from dataset import (
     smiles_to_maccs_ecfp4_fcfp4,
-    smiles_to_pubchem,
     shape_mixed,
     shape_maccs,
 )

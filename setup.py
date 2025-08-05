@@ -10,7 +10,7 @@ setup(
     author_email="ash.vardanian@unum.cloud",
     url="https://github.com/ashvardanian/usearch-molecules",
     license="LICENSE",
-    packages=find_packages(where="usearch_molecules"),
+    packages=find_packages(),
     include_package_data=True,
     install_requires=open("requirements.txt").read().splitlines(),
     classifiers=[

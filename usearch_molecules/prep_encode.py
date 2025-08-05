@@ -16,9 +16,8 @@ from usearch_molecules.metrics_numba import (
     tanimoto_conditional,
     tanimoto_maccs,
 )
-from usearch_molecules.to_fingerprint import (
+from dataset import (
     smiles_to_maccs_ecfp4_fcfp4,
-    smiles_to_pubchem,
     shape_mixed,
     shape_maccs,
 )
@@ -64,29 +63,6 @@ def augment_with_rdkit(parquet_path: os.PathLike):
     table = table.append_column(maccs_field, maccs_list)
     table = table.append_column(ecfp4_field, ecfp4_list)
     table = table.append_column(fcfp4_field, fcfp4_list)
-    write_table(table, parquet_path)
-
-
-def augment_with_cdk(parquet_path: os.PathLike):
-    meta = pq.read_metadata(parquet_path)
-    column_names: List[str] = meta.schema.names
-    if "pubchem" in column_names:
-        return
-
-    logger.info(f"Starting file {parquet_path}")
-    table: pa.Table = pq.read_table(parquet_path)
-    pubchem_list = []
-    for smiles in table["smiles"]:
-        try:
-            fingers = smiles_to_pubchem(str(smiles))
-            pubchem_list.append(fingers[0].tobytes())
-        except Exception:
-            pubchem_list.append(bytes(bytearray(111)))
-
-    pubchem_list = pa.array(pubchem_list, pa.binary(111))
-    pubchem_field = pa.field("pubchem", pa.binary(111), nullable=False)
-
-    table = table.append_column(pubchem_field, pubchem_list)
     write_table(table, parquet_path)
 
 
