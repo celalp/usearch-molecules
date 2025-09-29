@@ -65,28 +65,6 @@ def augment_with_rdkit(parquet_path: os.PathLike):
     write_table(table, parquet_path)
 
 
-def augment_with_cdk(parquet_path: os.PathLike):
-    meta = pq.read_metadata(parquet_path)
-    column_names: List[str] = meta.schema.names
-    if "pubchem" in column_names:
-        return
-
-    logger.info(f"Starting file {parquet_path}")
-    table: pa.Table = pq.read_table(parquet_path)
-    pubchem_list = []
-    for smiles in table["smiles"]:
-        try:
-            fingers = smiles_to_pubchem(str(smiles))
-            pubchem_list.append(fingers[0].tobytes())
-        except Exception:
-            pubchem_list.append(bytes(bytearray(111)))
-
-    pubchem_list = pa.array(pubchem_list, pa.binary(111))
-    pubchem_field = pa.field("pubchem", pa.binary(111), nullable=False)
-
-    table = table.append_column(pubchem_field, pubchem_list)
-    write_table(table, parquet_path)
-
 
 def augment_parquets_shard(
     parquet_dir: os.PathLike,
@@ -259,16 +237,3 @@ def mono_index_mixed(dataset: FingerprintedDataset):
     except KeyboardInterrupt:
         pass
 
-
-if __name__ == "__main__":
-    logger.info("Time to index some molecules!")
-
-    processes = max(cpu_count() - 4, 1)
-
-    for dataset in ["example", "pubchem", "gdb13", "real"]:
-        if not os.path.exists(f"data/{dataset}"):
-            continue
-
-        loaded_dataset = FingerprintedDataset.open(f"data/{dataset}")
-        mono_index_maccs(loaded_dataset)
-        mono_index_mixed(loaded_dataset)

@@ -27,9 +27,3 @@ def export_smiles(data):
             assert str(reconstructed[row]) == str(line)
         shard.table_cached = None
 
-
-if __name__ == "__main__":
-    for dataset in ["example", "pubchem", "gdb13", "real"]:
-        if not os.path.exists(f"data/{dataset}"):
-            continue
-        export_smiles(FingerprintedDataset.open(f"data/{dataset}"))

@@ -354,5 +354,4 @@ if __name__ == "__main__":
     for dataset in ["example", "pubchem", "gdb13", "real"]:
         if not os.path.exists(f"data/{dataset}"):
             continue
-        augment_parquet_shards(f"data/{dataset}/parquet", augment_with_cdk, processes)
         augment_parquet_shards(f"data/{dataset}/parquet", augment_with_rdkit, processes)

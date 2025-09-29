@@ -156,16 +156,6 @@ def mono_index_fcfp4(dataset):
     index_fcfp4.save(index_path_fcfp4)
     index_fcfp4.reset()
 
-parser = argparse.ArgumentParser(description='index a dataset')
-parser.add_argument('-d', '--directory', help="dataset directory", type=str, action="store")
-args = parser.parse_args()
-
-processes = 10
-loaded_dataset = FingerprintedDataset.open(args.directory)
-mono_index_maccs(loaded_dataset)
-mono_index_ecfp4(loaded_dataset)
-mono_index_fcfp4(loaded_dataset)
-export_smiles(loaded_dataset)
 
 
 

@@ -271,17 +271,3 @@ def export_parquet_shards(dataset: RawDataset, dir: os.PathLike, processes: int 
     else:
         export_parquet_shard(dataset, dir, 0, 1)
 
-
-if __name__ == "__main__":
-    logger.info("Time to pre-process some molecules!")
-
-    processes = max(cpu_count() - 4, 1)
-
-    if os.path.exists("data/example"):
-        export_parquet_shards(example("data/example"), "data/example", processes)
-    if os.path.exists("data/pubchem"):
-        export_parquet_shards(pubchem("data/pubchem"), "data/pubchem", processes)
-    if os.path.exists("data/gdb13"):
-        export_parquet_shards(gdb13("data/gdb13"), "data/gdb13", processes)
-    if os.path.exists("data/real"):
-        export_parquet_shards(real("data/real"), "data/real", processes)

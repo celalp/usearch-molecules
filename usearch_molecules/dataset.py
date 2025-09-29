@@ -16,9 +16,7 @@ import stringzilla as sz
 from rdkit import Chem
 from rdkit.Chem import AllChem, MACCSkeys
 
-_cdk = None
-_cdk_smiles_parser = None
-_cdk_fingerprinter = None
+from usearch_molecules.config import *
 
 def molecule_to_maccs(x):
     return MACCSkeys.GenMACCSKeys(x)
@@ -41,9 +39,7 @@ def smiles_to_maccs_ecfp4_fcfp4(
         np.packbits(molecule_to_fcfp4(molecule)),
     )
 
-SEED = 42  # For reproducibility
-SHARD_SIZE = 1_000_000  # This would result in files between 150 and 300 MB
-BATCH_SIZE = 100_000  # A good threshold to split insertions
+
 
 @dataclass
 class FingerprintShape:
