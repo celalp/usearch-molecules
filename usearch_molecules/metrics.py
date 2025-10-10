@@ -1,3 +1,4 @@
+import numpy as np
 from numba import cfunc, types, carray, njit
 
 numba_signature = types.float32(
@@ -92,3 +93,11 @@ def tanimoto_conditional(a, b):
     ecfp4 = 1 - types.float32(ands_ecfp4) / ors_ecfp4
 
     return ecfp4 * threashold
+
+# simple numpy implementations w/o numba acceleration
+def tanimoto(a: np.ndarray, b: np.ndarray) -> float:
+    a = np.unpackbits(a.view(np.uint8))
+    b = np.unpackbits(b.view(np.uint8))
+    ands = np.logical_and(a, b).sum()
+    ors = np.logical_or(a, b).sum()
+    return 1 - ands / ors
