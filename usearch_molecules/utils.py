@@ -1,9 +1,8 @@
 import os
 
-
 import numpy as np
-from rdkit import Chem
 
+from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
 from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator, GetMorganFeatureAtomInvGen
 
@@ -12,7 +11,6 @@ import pyarrow as pa
 
 fcfp_invariants = GetMorganFeatureAtomInvGen()
 fcfp_generator = GetMorganGenerator(radius=2, fpSize=2048, atomInvariantsGenerator=fcfp_invariants)
-
 ecfp_generator = GetMorganGenerator(radius=2, fpSize=2048)
 
 def molecule_to_maccs(x):
@@ -39,9 +37,11 @@ def smiles_to_maccs_ecfp4_fcfp4(smiles: str):
 
 
 def shard_name(dir, from_index, to_index, kind):
+    """create file name to indicate the star and end number for the shards"""
     return os.path.join(dir, kind, f"{from_index}-{to_index}.{kind}")
 
 def write_table(table, path_out):
+    """write parquet table"""
     return pq.write_table(
         table,
         path_out,
@@ -51,6 +51,11 @@ def write_table(table, path_out):
         )
 
 def augment_with_rdkit(parquet_path: os.PathLike):
+    """
+    augment parquet file with all the fingerprints, uses functions defined above
+    :param parquet_path: path of the file
+    :return: nothing just adds data to file i.e. the fingerprints
+    """
     meta = pq.read_metadata(parquet_path)
     column_names = meta.schema.names
 

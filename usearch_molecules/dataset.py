@@ -1,3 +1,4 @@
+import warnings
 from typing import List
 from dataclasses import dataclass
 import os
@@ -14,7 +15,18 @@ from usearch_molecules.utils import smiles_to_maccs_ecfp4_fcfp4
 class IncompleteIndexError(Exception):
     pass
 
+class DataIntegrityError(Exception):
+    pass
+
 def mono_index(dataset, shape, metric):
+    """
+    while the library can support mixed indexing I am not really using them at the moment
+    this is just a mono index for a fingerprint shape and the only metric we are using is tanimoto
+    :param dataset: FingerPringDataset instance see below
+    :param shape: FingerPringShape instance see below
+    :param metric: this is an implementation of tanimoto using numba, see metrics.py
+    :return: notihg but creates a file with index.<fingerprint-type>.usearch file
+    """
     index_path = os.path.join(dataset.dir, f"index-{shape.name}.usearch")
 
     index=Index(
@@ -87,6 +99,9 @@ class FingerprintShape:
 
 @dataclass
 class FingerprintedEntry:
+    """
+    a molecule's representation with the fingerprints
+    """
     smiles:str
     fingerprint: np.ndarray
 
@@ -124,12 +139,16 @@ class FingerprintedEntry:
 
 
 class FingerprintedShard:
+    """
+    this is to be used with a fingerpringdataset see below, each shard contains a subset (defined by rawdataset) of all the
+    molecules
+    """
     def __init__(self, shard_path, smiles_path, table_cached=None, smiles_caches=None):
         self.shard_path = shard_path
         self.smiles_path = smiles_path
         self.table_cached = table_cached
         self.smiles_caches = smiles_caches
-        self.start=int(list(os.path.split(shard_path)).pop().split("-")[0])
+        self.start=int(list(os.path.split(shard_path)).pop().split("-")[0])-1
         self.end=self.start+len(self.smiles)
 
     @property
@@ -155,29 +174,47 @@ class FingerprintedShard:
 
     def load_smiles(self):
         if not self.smiles_caches:
-            self.smiles_caches = sz.Str(sz.File(self.smiles_path)).splitlines()
+            self.smiles_caches = sz.File(self.smiles_path).splitlines()
         return self.smiles_caches
 
 
 class FingerprintedDataset:
-    def __init__(self, raw_dataset, shapes:List[FingerprintShape]):
+    def __init__(self, data_dir, shapes:List[FingerprintShape]):
         """
         This will convert a raw dataset to a fingerprinted dataset but creating indices and loading shards
         :param raw_dataset: rawdataset instance from usearch_molecules.raw_dataset
         """
-        self.raw_dataset = raw_dataset
+        self.dir = data_dir
         self.shapes = shapes
         self.indexed = False
         self.indices = {}
 
     @property
     def shards(self):
+        if not os.file.exists(os.path.join(self.dir, "parquet")):
+            raise NotADirectoryError("Parquet director not found")
+
+        if not os.path.exists(os.path.join(self.dir, "smiles")):
+            raise NotADirectoryError("SMILES directory not found")
+
         data = []
-        for smiles, shard in zip(self.raw_dataset.smiles, self.raw_dataset.shards):
-            sh=FingerprintedShard(shard, smiles)
-            data.append(sh)
+        smiles=os.listdir(os.path.join(self.dir, "smiles"))
+        smiles.sort()
+        parquets=os.listdir(os.path.join(self.dir, "parquet"))
+        parquets.sort()
+
+        if len(smiles) != len(parquets):
+            raise ValueError("Number of smiles and parquet files does not match")
+
+        for smi, parquet in zip(smiles, parquets):
+            if smi.replace("smi", "")==parquet.replace("parquet", ""):
+                sh=FingerprintedShard(parquet, smi)
+                data.append(sh)
+            else:
+                raise DataIntegrityError(f"{smi} and {parquet} names do not match")
         return data
 
+    @property
     def is_indexed(self):
         indices={}
         for shape in self.shapes:
@@ -187,14 +224,25 @@ class FingerprintedDataset:
             else:
                 indices[shape.name]=None
         if all(indices.values()):
-            self.indices = indices
-            self.indexed = True
+            return True
         else:
-            self.indexed=False
+            return False
+
+    @property
+    def indices(self):
+        indices={}
+        if self.is_indexed:
+            for shape in self.shapes:
+                index_path = os.path.join(self.raw_dataset.data_dir, shape.name)
+                indices[shape.name] = index_path
+        else:
+            warnings.warn("The dataset is not indexed")
+
+        return indices
 
     def index(self):
         if self.indexed:
-            return(f"{self.raw_dataset.data_dir} is already indexed")
+            return(f"{self.data_dir} is already indexed")
         else:
             # this is hardcoded but how many different kinds can you come up with here
             for shape in self.shapes:
@@ -209,7 +257,9 @@ class FingerprintedDataset:
                     self.indices["fcfp4"]=mono_index(self, shape, metric=metric)
                 else:
                     raise NotImplementedError(f"{shape.name} indexing is not implemented")
-            self.is_indexed()
+
+        self.is_indexed
+
 
     def search(self, smiles, shape, n=1000):
         if not self.indexed:

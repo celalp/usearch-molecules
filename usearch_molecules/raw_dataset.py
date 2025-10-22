@@ -12,12 +12,6 @@ from rdkit import RDLogger
 lg = RDLogger.logger()
 lg.setLevel(RDLogger.ERROR)
 
-
-def augment_parquets_shard(shard_subset, augmentation):
-    for file in shard_subset:
-        augmentation(os.path.join(file))
-
-
 class RawDataset:
     """raw dataset takes a list of files that contains smiles, splits them into shards and
     and calculates fingerprints. This is the first step to prepare the dataset
@@ -27,7 +21,7 @@ class RawDataset:
         """
         :param files: list of files to read, these files contain the smiles strings for the molecules
         :param output_dir: directory to write output to
-        :param extractor: a callable, if there are more things in the file use this function to extract it from the line
+        :param extractor: a callable, if there are more things in the file per line use this function to extract it from the line
         """
         self.files = files
         self.extractor = extractor
@@ -38,6 +32,7 @@ class RawDataset:
         self.smiles=[]
 
     def prep_shards(self):
+        """just collect shards and memory map them see stringzilla for an explanation"""
         lines=Strs()
         for file in self.files:
             f=File(file)
@@ -50,11 +45,12 @@ class RawDataset:
 
     def export_shards(self, shard_size=1_000_000, start_row=0):
         """
-        split all the files to n shards where each shard will have shard size smiles,
-        this function is a wrapper around _export_shard
-        :param shard_size: how many smiles per shard
-        :param start_row: if there is a header or other lines that we need to skip
-        :return: shards in self.data_dir
+        split the datasae into n shards of specific shard size the size is the number of smiles
+        that are going to be in each shard
+        :param shard_size: number of smiles
+        :param start_row: if there is header of somesuch
+        :return: names of files generated for smiles and shards, initially these are identical but
+        the shards will get augmented by rdkit
         """
         os.makedirs(os.path.join(self.data_dir, "parquet"), exist_ok=True)
         os.makedirs(os.path.join(self.data_dir, "smiles"), exist_ok=True)
@@ -78,26 +74,43 @@ class RawDataset:
                 for smile in self.lines[start:end]:
                     f.write(str(smile) + "\n")
 
-        return shards, smiles
+        self.shards=shards
+        self.smiles=smiles
 
-    def augment_parquet_shards(self, augmentation=augment_with_rdkit, processes=1):
-        filenames = sorted(self.shards)
-        shard_chunks = [
-            filenames[i::processes] for i in range(processes)
-        ]
 
-        if processes > 1:
-            process_pool = []
-            for i in range(processes):
-                p = Process(
-                    target=augment_parquets_shard,
-                    args=(shard_chunks[i], augmentation),
-                )
-                p.start()
-                process_pool.append(p)
 
-            for p in process_pool:
-                p.join()
-        else:
-            augment_parquets_shard(filenames, augmentation=augmentation)
+def augment_parquet_shard(shard_subset, augmentation):
+    """
+    this may seem convoluted but the augmentation is an expensive process and I need to have an out-of-scope function
+    so I can call mutiprocessing w/o worrying about changing things in self. This is mostly a me limitation as i do not know
+    how to make this part of the class
+    :param shard_subset: shard subset, multiprocessing will deal with it
+    :param augmentation: augmentation callable
+    :return:
+    """
+    for file in shard_subset:
+        augmentation(os.path.join(file))
+
+
+def augment_parquet_shards(dataset, augmentation=augment_with_rdkit, processes=1):
+    """This is where we call multiprocessing"""
+    filenames = sorted(dataset.shards)
+    shard_chunks = [
+        filenames[i::processes] for i in range(processes)
+    ]
+
+    if processes > 1:
+        process_pool = []
+        for i in range(processes):
+            p = Process(
+                target=augment_parquet_shard,
+                args=(shard_chunks[i], augmentation),
+            )
+            p.start()
+            process_pool.append(p)
+
+        for p in process_pool:
+            p.join()
+    else:
+        augment_parquet_shard(filenames, augmentation=augmentation)
 
