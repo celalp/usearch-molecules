@@ -1,4 +1,5 @@
 import warnings
+from functools import cached_property
 from typing import List
 from dataclasses import dataclass
 import os
@@ -148,8 +149,8 @@ class FingerprintedShard:
         self.smiles_path = smiles_path
         self.table_cached = table_cached
         self.smiles_caches = smiles_caches
-        self.start=int(list(os.path.split(shard_path)).pop().split("-")[0])-1
-        self.end=self.start+len(self.smiles)
+        self.start=int(list(os.path.split(shard_path)).pop().split("-")[0])
+        self.end=self.start+len(self.smiles)-1
 
     @property
     def is_complete(self):
@@ -187,27 +188,28 @@ class FingerprintedDataset:
         self.dir = data_dir
         self.shapes = shapes
         self.indexed = False
-        self.indices = {}
+        self.indices=self.get_indices()
+        self.shards=self.get_shards()
 
-    @property
-    def shards(self):
-        if not os.file.exists(os.path.join(self.dir, "parquet")):
+
+    def get_shards(self):
+        if not os.path.exists(os.path.join(self.dir, "parquet")):
             raise NotADirectoryError("Parquet director not found")
 
         if not os.path.exists(os.path.join(self.dir, "smiles")):
             raise NotADirectoryError("SMILES directory not found")
 
         data = []
-        smiles=os.listdir(os.path.join(self.dir, "smiles"))
+        smiles=[os.path.join(self.dir, "smiles", file) for file in os.listdir(os.path.join(self.dir, "smiles"))]
         smiles.sort()
-        parquets=os.listdir(os.path.join(self.dir, "parquet"))
+        parquets=[os.path.join(self.dir, "parquet", file) for file in os.listdir(os.path.join(self.dir, "parquet"))]
         parquets.sort()
 
         if len(smiles) != len(parquets):
             raise ValueError("Number of smiles and parquet files does not match")
 
         for smi, parquet in zip(smiles, parquets):
-            if smi.replace("smi", "")==parquet.replace("parquet", ""):
+            if smi.replace("smiles", "")==parquet.replace("parquet", ""):
                 sh=FingerprintedShard(parquet, smi)
                 data.append(sh)
             else:
@@ -218,7 +220,7 @@ class FingerprintedDataset:
     def is_indexed(self):
         indices={}
         for shape in self.shapes:
-            index_path=os.path.join(self.raw_dataset.data_dir, shape.name)
+            index_path=os.path.join(self.dir, "index-"+shape.name+".usearch")
             if os.path.exists(index_path):
                 indices[shape.name] = index_path
             else:
@@ -228,12 +230,11 @@ class FingerprintedDataset:
         else:
             return False
 
-    @property
-    def indices(self):
+    def get_indices(self):
         indices={}
         if self.is_indexed:
             for shape in self.shapes:
-                index_path = os.path.join(self.raw_dataset.data_dir, shape.name)
+                index_path = os.path.join(self.dir, shape.name)
                 indices[shape.name] = index_path
         else:
             warnings.warn("The dataset is not indexed")
@@ -242,7 +243,7 @@ class FingerprintedDataset:
 
     def index(self):
         if self.indexed:
-            return(f"{self.data_dir} is already indexed")
+            return(f"{self.dir} is already indexed")
         else:
             # this is hardcoded but how many different kinds can you come up with here
             for shape in self.shapes:
@@ -258,11 +259,9 @@ class FingerprintedDataset:
                 else:
                     raise NotImplementedError(f"{shape.name} indexing is not implemented")
 
-        self.is_indexed
-
 
     def search(self, smiles, shape, n=1000):
-        if not self.indexed:
+        if not self.is_indexed:
             raise IncompleteIndexError("The dataset is not full indexed please run index before searching")
 
         fingers = smiles_to_maccs_ecfp4_fcfp4(smiles)
@@ -273,15 +272,18 @@ class FingerprintedDataset:
             fingers[2],
             shape,
         )
-        index=Index.restore(self.indices[shape.name])
+        index=Index.restore(os.path.join(self.dir, "index-"+shape.name+".usearch"))
         results=index.search(entry.fingerprint, n)
+
 
         filtered_results = []
         for match in results:
             shard = self._shard_containing(match.key)
-            row = int(match.key - shard[0].start)
+            row = int(match.key - shard.start)
             result = str(shard.smiles[row])
             filtered_results.append((match.key, result, match.distance))
+
+        return filtered_results
 
     def open(self):
         for data in self.shards:
@@ -289,33 +291,29 @@ class FingerprintedDataset:
             data.smiles()
 
     def _shard_containing(self, key: int):
+        to_ret=None
         for shard in self.shards:
-            if shard[0].start <= key <= (shard[0].end):
-                return shard
-            else:
-                return None
-        return None
+            if shard.start <= key <= shard.end:
+                to_ret=shard
+
+        return to_ret
+
+
 
 
 shape_maccs = FingerprintShape(
     include_maccs=True,
-    nbytes_padding=3,
-)
-
-shape_mixed = FingerprintShape(
-    include_maccs=True,
-    include_ecfp4=True,
-    nbytes_padding=3,
+    nbytes_padding=0,
 )
 
 shape_ecfp4 = FingerprintShape(
     include_ecfp4=True,
-    nbytes_padding=3,
+    nbytes_padding=0,
 )
 
 shape_fcfp4 = FingerprintShape(
     include_fcfp4=True,
-    nbytes_padding=3,
+    nbytes_padding=0,
 )
 
 shape_mixed = FingerprintShape(

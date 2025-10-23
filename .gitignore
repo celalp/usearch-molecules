@@ -18,3 +18,4 @@ encode
 __pycache__
 .DS_Store
 usearch_molecules.egg-info
+test

@@ -75,7 +75,7 @@ def augment_with_rdkit(parquet_path: os.PathLike):
             fcfp4_list.append(bytes(bytearray(256)))
 
     maccs_list = pa.array(maccs_list, pa.binary(21))
-    ecfp4_list = pa.array(ecfp4_list, pa.binary(256))
+    ecfp4_list = pa.array(ecfp4_list, pa.binary(256)) #because 256*8 is 2048 (bytes to bits)
     fcfp4_list = pa.array(fcfp4_list, pa.binary(256))
     maccs_field = pa.field("maccs", pa.binary(21), nullable=False)
     ecfp4_field = pa.field("ecfp4", pa.binary(256), nullable=False)
